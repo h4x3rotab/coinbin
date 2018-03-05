@@ -1116,9 +1116,8 @@ $(document).ready(function() {
 					$("#redeemFromAddress").removeClass('hidden').html(
 						'<span class="glyphicon glyphicon-info-sign"></span> Retrieved unspent inputs from address <a href="'+explorer_addr+redeem.addr+'" target="_blank">'+redeem.addr+'</a>');
 					for(var i=0; i<data.length; i++) {
-						// for(var i in data.data.txs){
 						var o = data[i];
-						var tx = o.txid;
+						var tx = ((o.txid).match(/.{1,2}/g).reverse()).join("")+'';
 						if(tx.match(/^[a-f0-9]+$/)){
 							var n = o.vout;
 							var script = (redeem.isMultisig==true) ? $("#redeemFrom").val() : o.scriptPubKey;
