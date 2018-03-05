@@ -1595,7 +1595,10 @@
 				if (outpoint in inputMap) {
 					var vin = inputMap[outpoint];
 					cvin.value = vin.amount;
-					cvin.script = coinjs.script(Crypto.util.hexToBytes(vin.script));
+					if (!cvin.script.buffer) {
+						// Complete the script by redeem script from the input object when empty
+						cvin.script = coinjs.script(Crypto.util.hexToBytes(vin.script));
+					}
 				}
 			}
 			console.log(this.ins);
