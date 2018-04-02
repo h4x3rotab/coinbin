@@ -1315,6 +1315,23 @@
 		/* sign a multisig input */
 		r.signmultisig = function(index, wif, sigHashType){
 
+			function isArrayEqual(a, b) {
+				if (a.length != b.length) {
+					return false;
+				} else {
+					for (var i = 0; i < a.length; i++) {
+						if (a[i] != b[i]) {
+							return false;
+						}
+					}
+				}
+				return true;
+			}
+
+			function scriptGetNRequired(redeemScript) {
+				return redeemScript.chunks[0] - 80;
+			}
+
 			function scriptListPubkey(redeemScript){
 				var r = {};
 				for(var i=1;i<redeemScript.chunks.length-2;i++){
@@ -1329,8 +1346,18 @@
 				if (scriptSig.chunks[0]==0 && scriptSig.chunks[scriptSig.chunks.length-1][scriptSig.chunks[scriptSig.chunks.length-1].length-1]==174){
 					for(var i=1;i<scriptSig.chunks.length-1;i++){				
 						if (scriptSig.chunks[i] != 0){
-							c++;
-							r[c] = scriptSig.chunks[i];
+							var sig = scriptSig.chunks[i];
+							var existing = false;
+							for (var j in r) {
+								if (isArrayEqual(sig, r[j])) {
+									existing = true;
+									break;
+								}
+							}
+							if (!existing) {
+								c++;
+								r[c] = scriptSig.chunks[i];
+							}
 						}
 					}
 				}
@@ -1339,8 +1366,11 @@
 
 			var redeemScript = (this.ins[index].script.chunks[this.ins[index].script.chunks.length-1]==174) ? this.ins[index].script.buffer : this.ins[index].script.chunks[this.ins[index].script.chunks.length-1];
 
-			var pubkeyList = scriptListPubkey(coinjs.script(redeemScript));
+			var redeemScriptObj = coinjs.script(redeemScript);
+			var nRequired = scriptGetNRequired(redeemScriptObj);
+			var pubkeyList = scriptListPubkey(redeemScriptObj);
 			var sigsList = scriptListSigs(this.ins[index].script);
+			console.assert(nRequired > 0, 'Multi-sig nRequired must larger than 0.');
 
 			var shType = sigHashType || 1;
 			var sighash = Crypto.util.hexToBytes(this.transactionHash(index, shType));
@@ -1352,14 +1382,18 @@
 
 			s.writeOp(0);
 
+			var nSigned = 0;
 			for(x in pubkeyList){
 				for(y in sigsList){
 					this.ins[index].script.buffer = redeemScript;
 					sighash = Crypto.util.hexToBytes(this.transactionHash(index, sigsList[y].slice(-1)[0]*1));
 					if(coinjs.verifySignature(sighash, sigsList[y], pubkeyList[x])){
 						s.writeBytes(sigsList[y]);
+						nSigned++;
+						break;
 					}
 				}
+				if (nSigned >= nRequired) { break; }
 			}
 
 			s.writeBytes(redeemScript);
