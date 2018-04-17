@@ -961,15 +961,6 @@ $(document).ready(function() {
 			$("#inputs .txId:last").val(txid);
 			$("#inputs .txIdN:last").val(n);
 			$("#inputs .txIdAmount:last").val(amount);
-
-			if(script.match(/^00/) && script.length==44){
-				s = coinjs.script();
-				s.writeBytes(Crypto.util.hexToBytes(script));
-				s.writeOp(0);
-				s.writeBytes(coinjs.numToBytes((amount*100000000).toFixed(0), 8));
-				script = Crypto.util.bytesToHex(s.buffer);
-			}
-
 			$("#inputs .txIdScript:last").val(script);
 		}
 	}
@@ -1121,7 +1112,7 @@ $(document).ready(function() {
 						if(tx.match(/^[a-f0-9]+$/)){
 							var n = o.vout;
 							var script = (redeem.isMultisig==true) ? $("#redeemFrom").val() : o.scriptPubKey;
-							var amount = o.amount;
+							var amount = ((o.satoshis*1)/100000000).toFixed(8);
 							addOutput(tx, n, script, amount);
 						}
 					}
