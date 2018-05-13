@@ -1252,7 +1252,6 @@ $(document).ready(function() {
 			type: "POST",
 			url: urlBase,
 			data: "rawtx: " + $("#rawTransaction").val(),
-			dataType: "json",
 			error: function(data) {
 				$("#rawTransactionStatus").addClass('alert-danger').removeClass('alert-success').removeClass("hidden").html(" There was an error submitting your request, please try again").prepend('<span class="glyphicon glyphicon-exclamation-sign"></span>');
 			},
