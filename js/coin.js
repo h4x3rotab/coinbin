@@ -1034,14 +1034,15 @@
 			// start redeem script check
 			var extract = this.extractScriptKey(index);
 			if(!coinjs.useForkId && extract['type'] != 'segwit'){
-				return {'result':0, 'fail':'txtype', 'response':'sighash-witnessv0 is only for sigwit when forkid is not enabled'};
+				return {'result':0, 'fail':'txtype', 'response':'sighash-witnessv0 is only for segwit when forkid is not enabled'};
 			}
 
 			var scriptcode = Crypto.util.hexToBytes(extract['script']);
-			if(extract['type'] == 'sigwit') {
+			if(extract['type'] == 'segwit') {
 				if(scriptcode[0] != 0){
 					return {'result':0, 'fail':'scriptcode', 'response':'redeemscript is not valid'};
 				}
+				// convert witness program to p2pkh scriptPubKey. IAO, it doesn't support p2wsh
 				scriptcode = scriptcode.slice(1);
 				scriptcode.unshift(25, 118, 169);
 				scriptcode.push(136, 172);
@@ -1414,6 +1415,11 @@
 					var segwitHash = Crypto.util.hexToBytes(txhash.hash);
 					var signature = this.transactionSig(index, wif, shType, segwitHash);
 
+					// convert embedded witness program to p2sh scriptSig
+					var scriptSig = coinjs.script();
+					scriptSig.writeBytes(this.ins[index].script.buffer);	
+					this.ins[index].script = scriptSig;
+
 					if(!coinjs.isArray(this.witness)){
 						this.witness = [];
 					}
@@ -1431,7 +1437,7 @@
 						for(var y = 0; y < this.witness.length; y++){
 							if(!witness_used.includes(y)){
 								var sw = coinjs.segwitAddress(this.witness[y][1]);
-								if(sw['redeemscript'] == Crypto.util.bytesToHex(this.ins[i].script.buffer)){
+								if(sw['redeemscript'] == Crypto.util.bytesToHex(this.ins[i].script.chunks[0])){
 									witness_order.push(this.witness[y]);
 									witness_used.push(y);
 									break;
