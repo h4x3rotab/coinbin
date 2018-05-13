@@ -1090,9 +1090,11 @@ $(document).ready(function() {
 	}
 
 	function listUnspentBitcoingoldorg_BitcoinGold(redeem, mainnet) {
+		var baseUrl = mainnet ? 'https://explorer.bitcoingold.org/insight-api/addr/'
+							  : 'https://test-explorer.bitcoingold.org/insight-api/addr/';
 		$.ajax ({
 			type: "GET",
-			url: "https://explorer.bitcoingold.org/insight-api/addr/"+redeem.addr+"/utxo",
+			url: baseUrl+redeem.addr+"/utxo",
 			dataType: "json",
             crossDomain: true,
 			contentType: 'text/plain',
@@ -1244,9 +1246,11 @@ $(document).ready(function() {
 	// broadcast transaction via bitcoingold.org
 	function rawSubmitBitcoingoldorg_BitcoinGold(thisbtn, mainnet) {
 		$(thisbtn).val('Please wait, loading...').attr('disabled',true);
+		var urlBase = mainnet ? 'https://explorer.bitcoingold.org/insight-api/tx/send'
+		                      : 'https://test-explorer.bitcoingold.org/insight-api/tx/send';
 		$.ajax ({
 			type: "POST",
-			url: "https://explorer.bitcoingold.org/insight-api/tx/send",
+			url: urlBase,
 			data: "rawtx: " + $("#rawTransaction").val(),
 			dataType: "json",
 			error: function(data) {
