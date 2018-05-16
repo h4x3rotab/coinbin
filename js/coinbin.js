@@ -2235,5 +2235,5 @@ $(document).ready(function() {
 
 	// switch to Bitcoin Gold by default
 	$('#coinjs_coin option[value=bgold_mainnet]').prop('selected', true).change();
-
+	$('#settingsBtn').click();
 });
