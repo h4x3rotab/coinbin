@@ -2233,4 +2233,7 @@ $(document).ready(function() {
 		return true;
 	};
 
+	// switch to Bitcoin Gold by default
+	$('#coinjs_coin option[value=bgold_mainnet]').prop('selected', true).change();
+
 });
