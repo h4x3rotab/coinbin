@@ -610,7 +610,7 @@ $(document).ready(function() {
 					estimatedTxSize += 147
 				}
 
-				var value = parseInt($(".txIdAmount", o).val() * 1e8);
+				var value = Math.round($(".txIdAmount", o).val() * 1e8);
 				tx.addinput($(".txId",o).val(), $(".txIdN",o).val(), $(".txIdScript",o).val(), seq, value);
 			} else {
 				$('#putTabs a[href="#txinputs"]').attr('style','color:#a94442;');
