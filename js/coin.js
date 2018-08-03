@@ -1365,6 +1365,8 @@
 				return r;
 			}
 
+			if (index != 0) { return false; }
+
 			var redeemScript = (this.ins[index].script.chunks[this.ins[index].script.chunks.length-1]==174) ? this.ins[index].script.buffer : this.ins[index].script.chunks[this.ins[index].script.chunks.length-1];
 
 			var redeemScriptObj = coinjs.script(redeemScript);
@@ -1385,15 +1387,20 @@
 
 			var nSigned = 0;
 			for(x in pubkeyList){
+				var matched = false;
+				var hexPubkey = Crypto.util.bytesToHex(pubkeyList[x]);
 				for(y in sigsList){
 					this.ins[index].script.buffer = redeemScript;
 					sighash = Crypto.util.hexToBytes(this.transactionHash(index, sigsList[y].slice(-1)[0]*1));
 					if(coinjs.verifySignature(sighash, sigsList[y], pubkeyList[x])){
+						console.log(`Pubkey ${x} matched: ${hexPubkey}`);
 						s.writeBytes(sigsList[y]);
+						matched = true;
 						nSigned++;
 						break;
 					}
 				}
+				if (!matched) { console.log(`Pubkey ${x} doesn't match: ${hexPubkey}`); }
 				if (nSigned >= nRequired) { break; }
 			}
 
