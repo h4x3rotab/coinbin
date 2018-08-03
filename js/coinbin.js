@@ -1670,6 +1670,51 @@ $(document).ready(function() {
 		}
 	});
 
+	function handleSignDropZoneDrop(evt) {
+		evt.stopPropagation();
+		evt.preventDefault();
+
+		var files = evt.dataTransfer.files;
+		for (var i = 0; i < files.length; i++) {
+			var reader = new FileReader();
+			reader.onloadend = function(evt) {
+				if (evt.target.readyState != FileReader.DONE) {
+					return;
+				}
+				var content = evt.target.result.trim();
+				if (content.match(/^[0-9a-fA-F]+$/)) {
+					// Raw transaction
+					$("#signTransaction").val(content);
+				} else if (content.startsWith('[')) {
+					// JSON tx inputs
+					$("#signTransactionInputs").val(content);
+				} else if (content.match(/^[1-9A-HJ-NP-Za-km-z]{,37}$}/)) {
+					// Base58 privite key
+					$("#signPrivateKey").val(content);
+				}
+			};
+			reader.readAsText(files[i]);
+		}
+		$("#signDropZone").removeClass("dropping");
+	}
+
+	function handleSignDropZoneDragOver(evt) {
+		evt.stopPropagation();
+		evt.preventDefault();
+		evt.dataTransfer.dropEffect = 'copy';
+		$("#signDropZone").addClass("dropping");
+	}
+
+	function handleSignDropZoneDragLeave(evt) {
+		evt.stopPropagation();
+		evt.preventDefault();
+		$("#signDropZone").removeClass("dropping");
+	}
+
+	$("#signDropZone").get(0).addEventListener("drop", handleSignDropZoneDrop, false);
+	$("#signDropZone").get(0).addEventListener("dragover", handleSignDropZoneDragOver, false);
+	$("#signDropZone").get(0).addEventListener("dragleave", handleSignDropZoneDragLeave, false);
+
 	$("#sighashType").change(function(){
 		$("#sighashTypeInfo").html($("option:selected",this).attr('rel')).fadeOut().fadeIn();
 	});
