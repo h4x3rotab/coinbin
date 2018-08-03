@@ -118,3 +118,18 @@ body {
 #fees .total {
 	font-size: 100px;
 }
+
+#signDropZone {
+	margin-bottom: 20px;
+	border: 2px dashed #bbb;
+	-moz-border-radius: 5px;
+	-webkit-border-radius: 5px;
+	border-radius: 5px;
+	padding: 25px;
+	text-align: center;
+	font: 20pt bold 'Vollkorn';
+	color: #bbb;
+}
+#signDropZone .dropping {
+	border: 2px solid #bbb;
+}
