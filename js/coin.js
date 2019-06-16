@@ -143,6 +143,17 @@
 		return {'address':address, 'redeemScript':redeemScript, 'size': s.buffer.length};
 	}
 
+	coinjs.redeemScript2Address = function(s) {
+		const addrData = ripemd160(Crypto.SHA256(s.buffer, {asBytes: true}), {asBytes: true});
+		addrData.unshift(coinjs.multisig);
+		const r = Crypto.SHA256(Crypto.SHA256(addrData, {asBytes: true}), {asBytes: true});
+		const checksum = r.slice(0,4);
+
+		const address = coinjs.base58encode(addrData.concat(checksum));
+		var redeemScript = Crypto.util.bytesToHex(s.buffer);
+		return {'address':address, 'redeemScript':redeemScript, 'size': s.buffer.length};
+	}
+
 	/* new time locked address, provide the pubkey and time necessary to unlock the funds.
 	   when time is greater than 500000000, it should be a unix timestamp (seconds since epoch),
 	   otherwise it should be the block height required before this transaction can be released. 
@@ -688,22 +699,78 @@
 			return true;
 		};
 
+		function parseChunkMultisig(chunks) {
+			if (!(chunks.length >= 3 && 80 <= chunks[0] && chunks[0] <= 96)) {
+				return false;
+			}
+			const m = chunks[0] - 80;
+			let pushes = 0;
+			let pubkeys = []
+			for (let i = 1; i < chunks.length; i++) {
+				if (chunks[i] instanceof Array) {
+					pubkeys.push(chunks[i]);
+					pushes++;
+				}
+			}
+			let opN = chunks[1 + pushes]
+			if (!(80 <= opN && opN <= 96)) {
+				return false;
+			}
+			let n = opN - 80;
+			if (!(n >= m && pushes == n)) {
+				return false;
+			}
+			if (!chunks[2 + pushes] == 174 && chunks.length == 3 + pushes) {
+				return false;
+			}
+			return {
+				pubkeys: pubkeys,
+				signaturesRequired: m,
+			}
+		}
+
+		function parseChunkCltvMultisig(chunks) {
+			if (!(chunks[0] instanceof Array && chunks[1] == 177 && chunks[2] == 117)) {
+				return false;
+			}
+			else {
+				const multisigR = parseChunkMultisig(chunks.slice(3));
+				multisigR.cltvData = chunks[0];
+				return multisigR;
+			}
+		}
+
 		/* decode the redeemscript of a multisignature transaction */
 		r.decodeRedeemScript = function(script){
 			var r = false;
 			try {
 				var s = coinjs.script(Crypto.util.hexToBytes(script));
-				if((s.chunks.length>=3) && s.chunks[s.chunks.length-1] == 174){//OP_CHECKMULTISIG
+				const multisig = parseChunkMultisig(s.chunks)
+				if (multisig) {
 					r = {};
-					r.signaturesRequired = s.chunks[0]-80;
+					r.signaturesRequired = multisig.signaturesRequired;
 					var pubkeys = [];
-					for(var i=1;i<s.chunks.length-2;i++){
-						pubkeys.push(Crypto.util.bytesToHex(s.chunks[i]));
+					for (var i = 0; i < multisig.pubkeys.length; i++){
+						pubkeys.push(Crypto.util.bytesToHex(multisig.pubkeys[i]));
 					}
 					r.pubkeys = pubkeys;
 					var multi = coinjs.pubkeys2MultisigAddress(pubkeys, r.signaturesRequired);
 					r.address = multi['address'];
 					r.type = 'multisig__'; // using __ for now to differentiat from the other object .type == "multisig"
+					return r;
+				}
+				const cltvMultisig = parseChunkCltvMultisig(s.chunks)
+				if (cltvMultisig) {
+					r = {};
+					r.signaturesRequired = cltvMultisig.signaturesRequired;
+					var pubkeys = [];
+					for (var i = 0; i < cltvMultisig.pubkeys.length; i++) {
+						pubkeys.push(Crypto.util.bytesToHex(cltvMultisig.pubkeys[i]));
+					}
+					r.pubkeys = pubkeys;
+					var multi = coinjs.redeemScript2Address(s);
+					r.address = multi['address'];
+					r.type = 'multisig__';
 				} else if((s.chunks.length==2) && (s.buffer[0] == 0 && s.buffer[1] == 20)){ // SEGWIT
 					r = {};
 					r.type = "segwit__";
