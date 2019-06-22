@@ -640,6 +640,46 @@
 		return r;
 	}
 
+	function parseChunkMultisig(chunks) {
+		if (!(chunks.length >= 3 && 80 <= chunks[0] && chunks[0] <= 96)) {
+			return false;
+		}
+		const m = chunks[0] - 80;
+		let pushes = 0;
+		let pubkeys = []
+		for (let i = 1; i < chunks.length; i++) {
+			if (chunks[i] instanceof Array) {
+				pubkeys.push(chunks[i]);
+				pushes++;
+			}
+		}
+		let opN = chunks[1 + pushes]
+		if (!(80 <= opN && opN <= 96)) {
+			return false;
+		}
+		let n = opN - 80;
+		if (!(n >= m && pushes == n)) {
+			return false;
+		}
+		if (!chunks[2 + pushes] == 174 && chunks.length == 3 + pushes) {
+			return false;
+		}
+		return {
+			pubkeys: pubkeys,
+			signaturesRequired: m,
+		}
+	}
+
+	function parseChunkCltvMultisig(chunks) {
+		if (!(chunks[0] instanceof Array && chunks[1] == 177 && chunks[2] == 117)) {
+			return false;
+		}
+		else {
+			const multisigR = parseChunkMultisig(chunks.slice(3));
+			multisigR.cltvData = chunks[0];
+			return multisigR;
+		}
+	}
 
 	/* start of script functions */
 	coinjs.script = function(data) {
@@ -698,47 +738,6 @@
 
 			return true;
 		};
-
-		function parseChunkMultisig(chunks) {
-			if (!(chunks.length >= 3 && 80 <= chunks[0] && chunks[0] <= 96)) {
-				return false;
-			}
-			const m = chunks[0] - 80;
-			let pushes = 0;
-			let pubkeys = []
-			for (let i = 1; i < chunks.length; i++) {
-				if (chunks[i] instanceof Array) {
-					pubkeys.push(chunks[i]);
-					pushes++;
-				}
-			}
-			let opN = chunks[1 + pushes]
-			if (!(80 <= opN && opN <= 96)) {
-				return false;
-			}
-			let n = opN - 80;
-			if (!(n >= m && pushes == n)) {
-				return false;
-			}
-			if (!chunks[2 + pushes] == 174 && chunks.length == 3 + pushes) {
-				return false;
-			}
-			return {
-				pubkeys: pubkeys,
-				signaturesRequired: m,
-			}
-		}
-
-		function parseChunkCltvMultisig(chunks) {
-			if (!(chunks[0] instanceof Array && chunks[1] == 177 && chunks[2] == 117)) {
-				return false;
-			}
-			else {
-				const multisigR = parseChunkMultisig(chunks.slice(3));
-				multisigR.cltvData = chunks[0];
-				return multisigR;
-			}
-		}
 
 		/* decode the redeemscript of a multisignature transaction */
 		r.decodeRedeemScript = function(script){
@@ -1199,37 +1198,44 @@
 				if ('value' in this.ins[index]) {
 					value = this.ins[index].value;
 				}
-				if((this.ins[index].script.chunks.length==5) && this.ins[index].script.chunks[4]==172 && coinjs.isArray(this.ins[index].script.chunks[2])){ //OP_CHECKSIG
+				const inScript = this.ins[index].script
+				const inBuffer = inScript.buffer
+				const inChunks = inScript.chunks
+				if((inChunks.length==5) && inChunks[4]==172 && coinjs.isArray(inChunks[2])){ //OP_CHECKSIG
 					// regular scriptPubkey (not signed)
-					return {'type':'scriptpubkey', 'signed':'false', 'signatures':0, 'script': Crypto.util.bytesToHex(this.ins[index].script.buffer), 'value': value};
-				} else if((this.ins[index].script.chunks.length==2) && this.ins[index].script.chunks[0][0]==48 && this.ins[index].script.chunks[1].length == 5 && this.ins[index].script.chunks[1][1]==177){//OP_CHECKLOCKTIMEVERIFY
+					return {'type':'scriptpubkey', 'signed':'false', 'signatures':0, 'script': Crypto.util.bytesToHex(inBuffer), 'value': value};
+				} else if((inChunks.length==2) && inChunks[0][0]==48 && inChunks[1].length == 5 && inChunks[1][1]==177){//OP_CHECKLOCKTIMEVERIFY
 					// hodl script (signed)
-					return {'type':'hodl', 'signed':'true', 'signatures':1, 'script': Crypto.util.bytesToHex(this.ins[index].script.buffer), 'value': value};
-				} else if((this.ins[index].script.chunks.length==2) && this.ins[index].script.chunks[0][0]==48){ 
+					return {'type':'hodl', 'signed':'true', 'signatures':1, 'script': Crypto.util.bytesToHex(inBuffer), 'value': value};
+				} else if((inChunks.length==2) && inChunks[0][0]==48){ 
 					// regular scriptPubkey (probably signed)
-					return {'type':'scriptpubkey', 'signed':'true', 'signatures':1, 'script': Crypto.util.bytesToHex(this.ins[index].script.buffer), 'value': value};
-				} else if(this.ins[index].script.chunks.length == 5 && this.ins[index].script.chunks[1] == 177){//OP_CHECKLOCKTIMEVERIFY
+					return {'type':'scriptpubkey', 'signed':'true', 'signatures':1, 'script': Crypto.util.bytesToHex(inBuffer), 'value': value};
+				} else if(inChunks.length == 5 && inChunks[1] == 177){//OP_CHECKLOCKTIMEVERIFY
 					// hodl script (not signed)
-					return {'type':'hodl', 'signed':'false', 'signatures': 0, 'script': Crypto.util.bytesToHex(this.ins[index].script.buffer), 'value': value};
-				} else if((this.ins[index].script.chunks.length <= 3 && this.ins[index].script.chunks.length > 0) && this.ins[index].script.buffer.length == 22 && this.ins[index].script.chunks[0] == 0){
+					return {'type':'hodl', 'signed':'false', 'signatures': 0, 'script': Crypto.util.bytesToHex(inBuffer), 'value': value};
+				} else if((inChunks.length <= 3 && inChunks.length > 0) && inBuffer.length == 22 && inChunks[0] == 0){
 					// segwit script
 					var signed = ((this.witness[index]) && this.witness[index].length==2) ? 'true' : 'false';
 					var sigs = (signed == 'true') ? 1 : 0;
-					return {'type':'segwit', 'signed':signed, 'signatures': sigs, 'script': Crypto.util.bytesToHex(this.ins[index].script.buffer), 'value': value}; // **** correct?
-				} else if (this.ins[index].script.chunks[0]==0 && this.ins[index].script.chunks[this.ins[index].script.chunks.length-1][this.ins[index].script.chunks[this.ins[index].script.chunks.length-1].length-1]==174) { // OP_CHECKMULTISIG
+					return {'type':'segwit', 'signed':signed, 'signatures': sigs, 'script': Crypto.util.bytesToHex(inBuffer), 'value': value}; // **** correct?
+				} else if (inChunks[0]==0 && inChunks[inChunks.length-1][inChunks[inChunks.length-1].length-1]==174) { // OP_CHECKMULTISIG
 					// multisig script, with signature(s) included
-					return {'type':'multisig', 'signed':'true', 'signatures':this.ins[index].script.chunks.length-2, 'script': Crypto.util.bytesToHex(this.ins[index].script.chunks[this.ins[index].script.chunks.length-1]),
+					return {'type':'multisig', 'signed':'true', 'signatures':inChunks.length-2, 'script': Crypto.util.bytesToHex(inChunks[inChunks.length-1]),
 							'value': value};
-				} else if (this.ins[index].script.chunks[0]>=80 && this.ins[index].script.chunks[this.ins[index].script.chunks.length-1]==174) { // OP_CHECKMULTISIG
+				} else if (inChunks[0]>=80 && inChunks[inChunks.length-1]==174) { // OP_CHECKMULTISIG
 					// multisig script, without signature!
-					return {'type':'multisig', 'signed':'false', 'signatures':0, 'script': Crypto.util.bytesToHex(this.ins[index].script.buffer), 'value': value};
-				} else if (this.ins[index].script.chunks.length==0) {
+					return {'type':'multisig', 'signed':'false', 'signatures':0, 'script': Crypto.util.bytesToHex(inBuffer), 'value': value};
+				} else if (inChunks.length==0) {
 					// empty
 					return {'type':'empty', 'signed':'false', 'signatures':0, 'script': '', 'value': value};
-				} else {
-					// something else
-					return {'type':'unknown', 'signed':'false', 'signatures':0, 'script':Crypto.util.bytesToHex(this.ins[index].script.buffer), 'value': value};
 				}
+				const rCltvMultisig = parseChunkCltvMultisig(inChunks);
+				if (rCltvMultisig) {
+					// cltv multisig script without signature
+					return {'type':'multisig', 'signed':'false', 'signatures':0, 'script': Crypto.util.bytesToHex(inBuffer), 'value': value};
+				}
+				// something else
+				return {'type':'unknown', 'signed':'false', 'signatures':0, 'script':Crypto.util.bytesToHex(inBuffer), 'value': value};
 			} else {
 				return false;
 			}
@@ -1396,14 +1402,10 @@
 				return true;
 			}
 
-			function scriptGetNRequired(redeemScript) {
-				return redeemScript.chunks[0] - 80;
-			}
-
-			function scriptListPubkey(redeemScript){
+			function getDecompressedPubkeysData(params){
 				var r = {};
-				for(var i=1;i<redeemScript.chunks.length-2;i++){
-					r[i] = Crypto.util.hexToBytes(coinjs.pubkeydecompress(Crypto.util.bytesToHex(redeemScript.chunks[i])));
+				for (let i = 0; i < params.pubkeys.length; i++) {
+					r[i] = Crypto.util.hexToBytes(coinjs.pubkeydecompress(Crypto.util.bytesToHex(params.pubkeys[i])));
 				}
 				return r;
 			}
@@ -1435,8 +1437,10 @@
 			var redeemScript = (this.ins[index].script.chunks[this.ins[index].script.chunks.length-1]==174) ? this.ins[index].script.buffer : this.ins[index].script.chunks[this.ins[index].script.chunks.length-1];
 
 			var redeemScriptObj = coinjs.script(redeemScript);
-			var nRequired = scriptGetNRequired(redeemScriptObj);
-			var pubkeyList = scriptListPubkey(redeemScriptObj);
+			const params = parseChunkMultisig(redeemScriptObj.chunks) ||
+									   parseChunkCltvMultisig(redeemScriptObj.chunks);
+			const nRequired = params.signaturesRequired;
+			var pubkeyList = getDecompressedPubkeysData(params);
 			var sigsList = scriptListSigs(this.ins[index].script);
 			console.assert(nRequired > 0, 'Multi-sig nRequired must larger than 0.');
 
