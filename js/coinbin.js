@@ -1789,6 +1789,23 @@ $(document).ready(function() {
 		}
 	});
 
+	function download(filename, text) {
+		var element = document.createElement('a');
+		element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+		element.setAttribute('download', filename);
+		element.style.display = 'none';
+		document.body.appendChild(element);
+		element.click();
+		document.body.removeChild(element);
+	}
+
+	$(".downloadSignedTxBtn").click(function() {
+		const thisbtn = $(this).parent().parent();
+		const ta = $("textarea",thisbtn);
+		const val = $(ta).val()
+    download("signed.txt", val);
+	});
+
 	$('input[title!=""], abbr[title!=""]').tooltip({'placement':'bottom'});
 
 	if (location.hash !== ''){
