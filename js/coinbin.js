@@ -1800,8 +1800,8 @@ $(document).ready(function() {
 	}
 
 	$(".downloadSignedTxBtn").click(function() {
-		const thisbtn = $(this).parent().parent();
-		const ta = $("textarea",thisbtn);
+		const thisbtn = $(this).parent();
+		const ta = $("textarea.script",thisbtn);
 		const val = $(ta).val()
     download("signed.txt", val);
 	});
